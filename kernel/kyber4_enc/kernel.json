@@ -1,0 +1,26 @@
+{
+	"Description": "CRYSTALS Kyber (V) Encapsulation",
+	"Name": "kyber4_enc",
+	"Id": 2042,
+	"Version": "0.2.0",
+	"TopFunction": "pqcrystals_kyber1024_ref_enc",
+	"Files": [
+		"../../ref/kem.c",
+		"../../ref/indcpa.c",
+		"../../ref/polyvec.c",
+		"../../ref/poly.c",
+		"../../ref/ntt.c",
+		"../../ref/cbd.c",
+		"../../ref/reduce.c",
+		"../../ref/verify.c",
+		"../../ref/fips202.c",
+		"../../ref/symmetric-shake.c"
+	],
+	"Arguments": [
+		{ "Name": "ct", "Passing": "by reference" },
+		{ "Name": "ss", "Passing": "by reference" },
+		{ "Name": "pk", "Passing": "by reference" },
+		{ "Name": "buf", "Passing": "by reference" }
+	],
+	"CompilerFlags": [ "-DKYBER_K=4" ]
+}

@@ -1,0 +1,120 @@
+default:
+    image: rockylinux:8
+
+variables:
+    XILINXD_LICENSE_FILE: "/opt/cad/keys/xilinx"
+    XILINX_VIVADO: "/opt/cad/xilinx/vitis/Vivado/2022.1"
+    TAPASCO_VERSION: "develop"
+    HLS_ARCHITECTURES: "vc709,AU280"
+
+before_script:
+    # Install Vivado/Vitis dependencies, TaPaSCo dependencies and git
+    - dnf -y install ncurses-compat-libs glibc-headers glibc-devel python3 unzip zip tar libX11 gcc gcc-c++ which java-openjdk findutils git langpacks-en glibc-all-langpacks
+    # This was tested with Vitis/Vivado 2020.2
+    - source "$XILINX_VIVADO/settings64.sh"
+    # Use TaPaSCo from Git
+    - git clone https://github.com/esa-tu-darmstadt/tapasco.git tapasco
+    - git -C ./tapasco checkout $TAPASCO_VERSION
+    - ./tapasco/tapasco-init.sh
+    - source ./tapasco-setup.sh
+    - tapasco-build-toolflow
+    # Get an rpm from the TaPaSCo CI for the current master branch version 2021.1
+    # TODO: This will break as soon as a new TaPaSCo version is tagged.
+    #- dnf -y install wget
+    #- wget https://git.esa.informatik.tu-darmstadt.de/tapasco/tapasco/-/jobs/artifacts/master/raw/toolflow/scala/build/distributions/tapasco-2021-01.x86_64.rpm?job=build_scala_tapasco_fedora_31
+    #- mv 'tapasco-2021-01.x86_64.rpm?job=build_scala_tapasco_fedora_31' tapasco-2021-01.x86_64.rpm
+    #- dnf install -y ./tapasco-2021-01.x86_64.rpm
+    #- /opt/tapasco/tapasco-init-toolflow.sh
+    #- source ./tapasco-setup-toolflow.sh
+
+hls:
+    # The Normal tag is necessary to be picked up by a runner.
+    tags:
+        - Normal
+    # Only run a pipeline if the reference implementation is changed.
+    # TODO: This makes the pipeline creation fail in Gitlab v14.2 even though the docs say it was fixed..
+    #only:
+    #    changes:
+    #        - ref
+    # Perform High Level Synthesis without Evaluation because there is no Design Space Exploration (yet).
+    script:
+        - tapasco hls $PE_NAME -p $HLS_ARCHITECTURES
+    # Use a cache that is only valid for the current commit/pipeline because TaPaSCo does not regenerate existing IP Cores
+    # which leads to compositions with outdated HLS PEs if they are not removed.
+    #cache:
+    #    key: $CI_COMMIT_SHA
+    #    paths:
+    #        - core
+    # Make the packaged IP Core downloadable in the Gitlab UI.
+    artifacts:
+        name: $CI_JOB_NAME-$CI_COMMIT_SHA
+        # Always upload artifacts for troubleshooting if the job fails
+        when: always
+        paths:
+            - core
+    # Generate and run an HLS job for each PE in parallel.
+    parallel:
+        matrix:
+            - PE_NAME: 
+                - kyber2_enc
+                - kyber3_enc
+                - kyber4_enc
+                - kyber2_dec
+                - kyber3_dec
+                - kyber4_dec
+
+compose:
+    # The High tag grants more resources, Ultra will grant hopefully enough.
+    tags:
+        - Ultra
+    # This job needs all HLS Jobs because if one of them fails in synthesis, I don't want to waste time with composition.
+    needs: [hls]
+    # Compose a bitstream for all architectures with different frequencies for each configuration.
+    # TODO: I don't know if `--maxThreads 3` is really necessary.
+    script:
+        - tapasco --maxThreads 3 compose [ $COMPOSITION ] @ $FREQUENCY MHz --deleteProjects false -p $ARCHITECTURE
+    retry: 2
+    allow_failure: true
+    # Use the generated PEs from the HLS jobs
+    #cache:
+    #    # Don't push the cache back after the job finishes
+    #    policy: pull
+    #    key: $CI_COMMIT_SHA
+    #    paths:
+    #        - core
+    # Make the bitstreams including their logs, timing and utilization results downloadable.
+    artifacts:
+        name: $CI_JOB_NAME-$CI_COMMIT_SHA
+        when: always
+        paths:
+            - compose/**/*.bit
+            - compose/**/*.log
+            - compose/**/timing.txt
+            - compose/**/utilization.txt
+            - compose/**/utilization_userlogic.txt
+            - core/**/*.log
+    # Generate and run a job for each configuration, frequency pair.
+    parallel:
+        matrix:
+            # Implement each PE alone for accurate utilization results
+            - COMPOSITION:
+                - "kyber2_enc x 1"
+                - "kyber3_enc x 1"
+                - "kyber4_enc x 1"
+                - "kyber2_dec x 1"
+                - "kyber3_dec x 1"
+                - "kyber4_dec x 1"
+              FREQUENCY: ["100", "150"] #, "200"]
+              ARCHITECTURE: ["vc709", "AU280"]
+            # Implement an encapsulation and decapsulation PE together for each security level because usually you will need both.
+            - COMPOSITION:
+                - "kyber2_enc x 1, kyber2_dec x 1"
+                - "kyber3_enc x 1, kyber3_dec x 1"
+                - "kyber4_enc x 1, kyber4_dec x 1"
+              FREQUENCY: ["100", "150"] #, "200"]
+              ARCHITECTURE: ["vc709", "AU280"]
+            # Implement all PEs for all security levels in one design which is handy for testing them and the runtime.
+            - COMPOSITION:
+                - "kyber2_enc x 1, kyber2_dec x 1, kyber3_enc x 1, kyber3_dec x 1, kyber4_enc x 1, kyber4_dec x 1"
+              FREQUENCY: ["50"] #, "100"]
+              ARCHITECTURE: ["vc709", "AU280"]

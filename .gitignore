@@ -4,3 +4,10 @@ tvecs512
 tvecs512-90s
 tvecs768
 tvecs768-90s
+
+compose
+core
+DSE_*
+tapasco-setup.sh
+vitis_hls.log
+*.bak

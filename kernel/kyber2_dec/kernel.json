@@ -1,0 +1,25 @@
+{
+	"Description": "CRYSTALS Kyber (I) Decapsulation",
+	"Name": "kyber2_dec",
+	"Id": 2023,
+	"Version": "0.2.0",
+	"TopFunction": "pqcrystals_kyber512_ref_dec",
+	"Files": [
+		"../../ref/kem.c",
+		"../../ref/indcpa.c",
+		"../../ref/polyvec.c",
+		"../../ref/poly.c",
+		"../../ref/ntt.c",
+		"../../ref/cbd.c",
+		"../../ref/reduce.c",
+		"../../ref/verify.c",
+		"../../ref/fips202.c",
+		"../../ref/symmetric-shake.c"
+	],
+	"Arguments": [
+		{ "Name": "ss", "Passing": "by reference" },
+		{ "Name": "ct", "Passing": "by reference" },
+		{ "Name": "sk", "Passing": "by reference" }
+	],
+	"CompilerFlags": [ "-DKYBER_K=2" ]
+}

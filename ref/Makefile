@@ -169,6 +169,10 @@ PQCgenKAT_kem768-90s: $(SOURCESNINETIES) $(HEADERSNINETIES) PQCgenKAT_kem.c rng.
 PQCgenKAT_kem1024-90s: $(SOURCESNINETIES) $(HEADERSNINETIES) PQCgenKAT_kem.c rng.c rng.h
 	$(CC) $(NISTFLAGS) -DKYBER_K=4 -DKYBER_90S -o $@ $(SOURCESNINETIES) rng.c PQCgenKAT_kem.c $(LDFLAGS) -lcrypto
 
+# Replace openssl's random number generator with the one from randombytes.c because there is no OpenSSL on an FPGA.
+PQCgenKAT_kem512-hls: $(SOURCESKECCAK) $(HEADERSKECCAK) PQCgenKAT_kem.c
+	$(CC) $(NISTFLAGS) -D__SYNTHESIS__ -DKYBER_K=2 -o $@ $(SOURCESKECCAK) randombytes.c PQCgenKAT_kem.c $(LDFLAGS)
+
 clean:
 	-$(RM) -rf *.gcno *.gcda *.lcov *.o *.so
 	-$(RM) -rf test_kyber512
@@ -201,3 +205,4 @@ clean:
 	-$(RM) -rf PQCgenKAT_kem512-90s
 	-$(RM) -rf PQCgenKAT_kem768-90s
 	-$(RM) -rf PQCgenKAT_kem1024-90s
+	-$(RM) -rf PQCgenKAT_kem512-hls

@@ -48,15 +48,28 @@ int crypto_kem_keypair(uint8_t *pk,
 *
 * Returns 0 (success)
 **************************************************/
+#ifndef __SYNTHESIS__
 int crypto_kem_enc(uint8_t *ct,
                    uint8_t *ss,
                    const uint8_t *pk)
 {
   uint8_t buf[2*KYBER_SYMBYTES];
+#else
+// For synthesis expand this function to also take a buffer that is already
+// initialized with the necessary random input `buf`:
+int crypto_kem_enc(uint8_t ct[KYBER_CIPHERTEXTBYTES],
+                   uint8_t ss[KYBER_SSBYTES],
+                   const uint8_t pk[KYBER_PUBLICKEYBYTES],
+                   uint8_t buf[2*KYBER_SYMBYTES])
+{
+#endif
   /* Will contain key, coins */
   uint8_t kr[2*KYBER_SYMBYTES];
 
+#ifndef __SYNTHESIS__
+  // Don't use randombytes in hardware implementation
   randombytes(buf, KYBER_SYMBYTES);
+#endif
   /* Don't release system RNG output */
   hash_h(buf, buf, KYBER_SYMBYTES);
 
